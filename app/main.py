@@ -51,6 +51,7 @@ class Mission:
         # be only used for flightlead filtered groups as they should not
         # collide by definition. Other groups can work, but not guaranteed
         self.groups_blue = {}
+        self.group_to_country = {}
 
         if filepath:
             raw_lua_mission = self.read_mission_from_mizfile(filepath)
@@ -88,8 +89,9 @@ class Mission:
                                     f"Overwritting lookup for group "
                                     f"{group['name']}. Exists more than once.")
                             self.groups_blue[group['name']] = group
+                            self.group_to_country[group['name']] = country_data['name']
 
-                        
+                       
                         self.used_group_ids.add(group['groupId'])
                         for uidx, unit in group['units'].items():
                             self.used_unit_ids.add(unit['unitId'])
@@ -375,38 +377,6 @@ def main():
     home = expanduser("~")
     missionsfolder = os.path.join(home, 'Saved Games', 'DCS', 'Missions')
 
-    mission_file_name = 'Caucasus_VGAF_Campaign_01_v03_Base.miz'
-    mission_base = os.path.join(missionsfolder, mission_file_name)
-
-    # Create a new file for the merged Version
-    mission_tmp_file = mission_file_name.replace('.miz', '_temp.miz')
-    mission_temp = os.path.join(missionsfolder, mission_tmp_file)
-    shutil.copyfile(mission_base, mission_temp)
-    logging.getLogger().debug('Created temp mission file based on a copy')
-
-    # Parses the generated TEMP file from the Mission Base - as this is only
-    # the temp file, this data can be also saved backed into the file.
-    final_mission = Mission(mission_temp)
-
-    # Read the Flights-Plannings and copy them into the current mission
-    example_flight_file_names = ['Caucasus_VGAF_Campaign_01_v03_stingray.miz']
-    for flight_mission in example_flight_file_names:
-        mission_file = os.path.join(missionsfolder, flight_mission)
-
-        my_mission = Mission(mission_file)
-
-        for gname in CFG['group_copy_filter']:
-            for appendix in ['', ' 1', ' 2', ' 3', ' 4']:
-                if gname+appendix in my_mission.groups_blue:
-                    final_mission.add_group(my_mission.groups_blue[gname+appendix])
-    
-    print(f"Post processing steps")
-    print(f"---------------------")
-    final_mission.save_mission_to_mizfile()
-
-
-    print(f"")
-    exit()
     # Find DCS Folder and read available Mission files
     options = []
     for filename in os.listdir(missionsfolder):
@@ -416,21 +386,46 @@ def main():
 
     # Offer selection for the Mission BASE with all Enemy strategies, etc.
     mission_base = select_base_mission_cmdline(options)
+    # mission_file_name = 'Caucasus_VGAF_Campaign_01_v03_Base.miz'
+    # mission_base = os.path.join(missionsfolder, mission_file_name)
     print()
 
     # Offer multiple selection for flight plans
     missionlist_flights = select_flights_cmdline(options)
     print()
-    print(missionlist_flights)
 
-    # Offer an output file name or set a default (never overwrite base!)
-    # TODO: Optional Future Feature - Create Mission Briefing from Mission file
-    # open (unzip) Base file and read data
-    # open all flights an read their data
-    # merge each flight into the Base Mission - including verifications etc.
-    # save new mission into output file
-    pass
-  
+
+    # Create a new file for the merged Version
+    # mission_tmp_file = mission_file_name.replace('.miz', '_temp.miz')
+    mission_tmp_file = 'VGAF_Campaign_02_sharkbite.miz'
+    mission_temp = os.path.join(missionsfolder, mission_tmp_file)
+    shutil.copyfile(mission_base, mission_temp)
+    logging.getLogger().debug('Created temp mission file based on a copy')
+
+    # Parses the generated TEMP file from the Mission Base - as this is only
+    # the temp file, this data can be also saved backed into the file.
+    final_mission = Mission(mission_temp)
+
+    # Read the Flights-Plannings and copy them into the current mission
+    # example_flight_file_names = ['Caucasus_VGAF_Campaign_01_v03_stingray.miz']
+    for mission_file in missionlist_flights:
+        # mission_file = os.path.join(missionsfolder, flight_mission)
+
+        my_mission = Mission(mission_file)
+
+        for gname in CFG['group_copy_filter']:
+            for appendix in ['', ' 1', ' 2', ' 3', ' 4', '-1', '-2']:
+                if gname+appendix in my_mission.groups_blue:
+                    final_mission.add_group(
+                        my_mission.groups_blue[gname+appendix],
+                        country=my_mission.group_to_country[gname+appendix])
+    
+    print(f"Post processing steps")
+    print(f"---------------------")
+    final_mission.save_mission_to_mizfile()
+
+    print(f"")
+    exit()
 
 
 if __name__ == '__main__':
